@@ -9,6 +9,7 @@ import sys
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -22,116 +23,154 @@ def train():
                                     one_hot=True,
                                     fake_data=FLAGS.fake_data)
 
-
-  TRAIN_ITERS=100
   
-  M=200 # minibatch size
+  TRAIN_ITERS=100000 #Training iterations
+  NOISE_Dim = 100 #Input nosie dimension
+  M=128 #Minibatch sizes
 
-  
-
-  def sigmoid(x):
-  	return 1 / (1 + np.exp(-x))
+  #----------------Various ways of initalising the parameters----------------------
+  def xavier_init(size):
+    in_dim = size[0]
+    xavier_stddev = 1. / tf.sqrt(in_dim / 2.)
+    return tf.random_normal(shape=size, stddev=xavier_stddev)
   	
   def weight_variable(shape):
-    """Create a weight variable with appropriate initialization."""
     initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
-
+    return initial
+  
   def bias_variable(shape):
-    """Create a bias variable with appropriate initialization."""
-    initial = tf.constant(0.1, shape=shape)
+    initial = tf.constant(0.0, shape=shape)
     return tf.Variable(initial)
+  
+  #Random noise - potentially swap out for gaussian later 
+  def sample_Z(m, n):
+    return np.random.uniform(-1., 1., size=[m, n])	  
 
+    
+  #Basic NN layer without activation, combine these 
   def nn_layer(input_tensor, input_dim, output_dim):
-    weights = weight_variable([input_dim, output_dim])
+    weights = tf.Variable(xavier_init([input_dim, output_dim]))
     biases = bias_variable([output_dim])
     preactivate = tf.matmul(input_tensor, weights) + biases
-    activations = preactivate
-    return activations,weights,biases
+    return preactivate,weights,biases
          
-      
-  def simple_NN(input, input_dim, output_dim):
-  	hidden_1,w1,b1 = nn_layer(input, input_dim,750)
-  	hidden_2,w2,b2 = nn_layer(tf.nn.relu(hidden_1),750,output_dim)
-  	return tf.nn.tanh(hidden_2),[w1,w2,b1,b2]
-  	
+  #----------Models-Copied from blogpost in slack, should give atleast a reasonable result------------------------------------------
+  
+  #Generator NN: z -> (100,128) -> reLU -> (128,784) -> Sigmoid
+  def Generator_NN(input, input_dim, output_dim):
+  	hidden_1,w1,b1 = nn_layer(input, input_dim,128)
+  	hidden_2,w2,b2 = nn_layer(tf.nn.relu(hidden_1),128,output_dim)
+  	return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2]
+  
+  #Discrimiantor NN: x -> (784,128) -> reLU -> (128,1) -> sigmoid  
+  def Discrim_NN(input, input_dim, output_dim):
+  	hidden_1,w1,b1 = nn_layer(input, input_dim,128)
+  	hidden_2,w2,b2 = nn_layer(tf.nn.relu(hidden_1),128,output_dim)
+  	return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2]
   
   	
   	
-  # Input placeholders
+  #create and link placeholders to nextwork
+  
   with tf.variable_scope('G'):
-  	#Noisy input  	
-  	z_node = tf.placeholder(tf.float32, shape =  [None, 784]) #feed in batch size
-  	G,theta_g = simple_NN(z_node,784,784)
-   
+  	#Noisy input of dimension: NOISE_Dim
+  	z_node = tf.placeholder(tf.float32, shape =  [None, NOISE_Dim]) #feed in batch size
+  	G,theta_g = Generator_NN(z_node,NOISE_Dim,784)
+  
   with tf.variable_scope('D') as scope:
-  	#Will be Real images
-  	x_node = tf.placeholder(tf.float32, shape = [None,784])
-  	
-  	#Takes input image and returns a value between 0 and 1
-  	fc,theta_d = simple_NN(x_node,784,1)
-  	D1 = tf.maximum(tf.minimum(fc,.99),0.01)
+  	x_node = tf.placeholder(tf.float32, shape = [None,784]) #Real images
+  	D1,theta_d = Discrim_NN(x_node,784,1)
   	
   	#Make copy of D that uses same variables but has G as input
   	scope.reuse_variables()
-  	fc,theta_d = simple_NN(G,784,1)
-  	D2 = 	tf.maximum(tf.minimum(fc,.99),0.01)
+  	D2,theta_d = Discrim_NN(G,784,1)
   	
-  		
-  obj_d=tf.reduce_mean(tf.log(D1)+tf.log(1-D2)) #need to be minimized for D
-  obj_g=tf.reduce_mean(tf.log(D2)) #Maximised for G - fooling D1!
   
-  opt_g = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(-obj_g,var_list=theta_g) #Multiple objective by -1 to maximise!
-  opt_d = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(obj_d,var_list=theta_d)
+  #Both of these objectives need to be minimised (observe the minus sign in front)
+  obj_d= -tf.reduce_mean(tf.log(D1)+tf.log(1-D2)) 
+  obj_g= -tf.reduce_mean(tf.log(D2)) 
+  
+  opt_d = tf.train.AdamOptimizer().minimize(obj_d,var_list=theta_d)
+  opt_g = tf.train.AdamOptimizer().minimize(obj_g,var_list=theta_g) 
   
   
-  saver = tf.train.Saver()
+  saver = tf.train.Saver() #For saving the fitted model TODO: how to restart a session from a saved metadata
+  
+  #Initalise variables and start session
   sess = tf.InteractiveSession()
   init = tf.global_variables_initializer()  
   sess.run(init)
-      
+  
+  #Number of repeated training steps for the discrimiantor
   k=1
   image_count = mnist.train.images.shape[1]
   
   #Storage for objective function values
   histd, histg= np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
   
-  
+  #Start trainning
   for i in range(TRAIN_ITERS):
   	for j in range(k):
   		x = mnist.train.images[np.random.choice(image_count,M),:] #Select a mini batch 
-  		z = np.random.uniform(0.0,1.0,(M,784)) #Noisy examples
-  		histd[i],_= sess.run([obj_d,opt_d], {x_node: x, z_node: z})
+  		z = sample_Z(M,NOISE_Dim) #Noisy examples
+  		histd[i],_= sess.run([obj_d,opt_d], {x_node: x, z_node: z}) #update parameters in direction of gradient
   		
-  	z = np.random.uniform(0.0,1.0,(M,784)) #Noisy sample
+  	z = sample_Z(M,NOISE_Dim)
   	histg[i],_ = sess.run([obj_g,opt_g], {z_node: z}) # update generator#
   	
+  	#Print some information to see whats happening
 	if i % (TRAIN_ITERS // 10) == 0:		  	
 		print("Iteration: ",float(i)/float(TRAIN_ITERS))
 		print("G objective (Need to maximise):",histg[i])
 		print("D objective (Need to minimise):",histd[i])
-		
+		print("Average 100 Data into D1:",
+		np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+		)
+		print("avg 100 Noise into D1:",
+		np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_Dim)} ))
+		)
   
   
-  #Feed noise into D and see what comes out:
-  #Should be a probablity between 0-1 on its whether it believes the image is noise or not
-  print("Noise into D1:",
-  sess.run([D1],{x_node: np.random.uniform(0.0,1.0,(1,784))} )
+  #Check performance of 100 noise samples into Discriminator
+  print("avg 100 Noise into D1:",
+  np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_Dim)} ))
   )
   
-  #Feeding noise into G to see what comes out ! 
-  my_array = np.array(sess.run([G],{z_node: np.random.uniform(0.0,1.0,(1,784))})).reshape(28,28)
-  plt.imshow(my_array,interpolation='nearest')
-  plt.gray()
-  plt.show()
-
+  #Check performance of 100 data inputs into discriminator
+  print("Average 100 Data into D1:",
+  np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+  )
   
+  #Make some picture of G output
+  
+  #-----------------Plot function for grid of pictures-----------------------------------
+  def plot(samples):
+  	fig = plt.figure(figsize=(4, 4))
+  	gs = gridspec.GridSpec(4, 4)
+  	gs.update(wspace=0.05, hspace=0.05)
+  	
+  	for i, sample in enumerate(samples):
+  		ax = plt.subplot(gs[i])
+  		plt.axis('off')
+  		ax.set_xticklabels([])
+  		ax.set_yticklabels([])
+  		ax.set_aspect('equal')
+  		plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
+  	return fig  
+     	
+  
+  #----------------------Generate samples and plot, save to "pretty_pictures.png" --------------------------------
+  samples = sess.run(G, feed_dict={z_node: sample_Z(16, NOISE_Dim)})
+  fig = plot(samples)
+  plt.savefig('pretty_plot.png', bbox_inches='tight')
+  
+  #Save the fitted model
   saver.save(sess, 'my-model')
   
 def main(_):
   train()
 
-
+#FEW if any of these flags are used....
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--fake_data', nargs='?', const=True, type=bool,
