@@ -24,7 +24,7 @@ def train():
                                     fake_data=FLAGS.fake_data)
 
   
-  TRAIN_ITERS=100000 #Training iterations
+  TRAIN_ITERS=1000 #Training iterations
   NOISE_Dim = 100 #Input nosie dimension
   M=128 #Minibatch sizes
 
@@ -107,6 +107,7 @@ def train():
   
   #Storage for objective function values
   histd, histg= np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
+  hist_pred_noise, hist_pred_data = np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
   
   #Start trainning
   for i in range(TRAIN_ITERS):
@@ -118,16 +119,19 @@ def train():
   	z = sample_Z(M,NOISE_Dim)
   	histg[i],_ = sess.run([obj_g,opt_g], {z_node: z}) # update generator#
   	
+  	hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+  	hist_pred_noise[i] = np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_Dim)} ))
+  		
   	#Print some information to see whats happening
 	if i % (TRAIN_ITERS // 10) == 0:		  	
 		print("Iteration: ",float(i)/float(TRAIN_ITERS))
 		print("G objective (Need to maximise):",histg[i])
 		print("D objective (Need to minimise):",histd[i])
 		print("Average 100 Data into D1:",
-		np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+		hist_pred_data[i]
 		)
 		print("avg 100 Noise into D1:",
-		np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_Dim)} ))
+		hist_pred_noise[i]
 		)
   
   
@@ -140,6 +144,16 @@ def train():
   print("Average 100 Data into D1:",
   np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
   )
+  
+
+  plt.figure(1)
+  plt.subplot(211)
+  plt.plot(range(TRAIN_ITERS), hist_pred_data , 'b-')
+  
+  plt.subplot(212)
+  plt.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
+  plt.savefig("DATA_NOISE.png",bbox_inches="tight")
+  
   
   #Make some picture of G output
   
