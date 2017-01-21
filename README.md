@@ -16,3 +16,4 @@ Convolutional, layers, dropout, ...
 ## Questions/notes
 
 Also about TensorFlow itself
+ * Maybe multistart is less needed when dropout is applied.
