@@ -51,8 +51,12 @@ def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pre
     fig = plt.figure()
     ax1 = fig.add_subplot(211)
     ax1.plot(range(TRAIN_ITERS), hist_pred_data , 'b-')
+    ax1.set_title("Discriminator vs Real Data")
+    
     ax2 = fig.add_subplot(212)
     ax2.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
+    ax2.set_title("Discriminator vs Noise")
+    
     plt.savefig("DATA_NOISE.png",bbox_inches="tight")
 
 def Loss_function_png(histd, histg):
@@ -61,7 +65,7 @@ def Loss_function_png(histd, histg):
 	ax1.plot(range(histg.shape[0]), histg , 'b-')
 	ax1.set_title("Generator Loss Function")
 	ax2 = fig.add_subplot(212)
-	ax2.plot(range(histg.shape[0]), histd  , 'b-')
+	ax2.plot(range(histd.shape[0]), histd  , 'b-')
 	ax2.set_title("Discriminator Loss Function")
 	plt.savefig("Loss_Functions.png",bbox_inches="tight")
 	

@@ -61,52 +61,54 @@ def graph_optimizers(obj_d, obj_g, theta_d, theta_g):
 #		 Modifications to the above constructors should be checked for validity by
 #		 running the optimization routine on them
 #
-def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer):
+def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer):
 	
 	 #Storage for objective function values
-    histd, histg= np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
+    histd, histg= np.zeros((TRAIN_ITERS*K_D)), np.zeros((TRAIN_ITERS*K_G))
     hist_pred_noise, hist_pred_data = np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
-  
+    
     #Start trainning
     for i in range(TRAIN_ITERS):
         # run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         # run_metadata = tf.RunMetadata() TODO: report metadata
-        if i % DIAGN_STEP == 0:   # Compute summaries
-            for j in range(K):
-      	         x = mnist.train.images[np.random.choice(image_count,M),:] #Select a mini batch 
-      	         z = sample_Z(M,NOISE_DIM) #Noisy examples
-      	         summary, histd[i],_= sess.run([merged_summ, obj_d,opt_d], {x_node: x, z_node: z}) #update parameters in direction of gradient
-      	         train_writer.add_summary(summary, (K+1)*i + j)
-      		
-            z = sample_Z(M,NOISE_DIM)
-            summary, histg[i], _ = sess.run([merged_summ, obj_g,opt_g], {x_node: np.zeros((1,784)), z_node: z}) # update generator#
-            train_writer.add_summary(summary, (K+1) * i + K) # TODO: Check if this does not cause a clash with previous add_summary
-      	
-            hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
-            hist_pred_noise[i] = np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_DIM)} ))
+        if i % DIAGN_STEP == 0:
+        	# Compute summaries
+        	#Train discriminator K_D times
+        	for j in range(K_D):
+        		x = mnist.train.images[np.random.choice(image_count,M),:] #Select a mini batch 
+        		z = sample_Z(M,NOISE_DIM) #Noisy examples
+        		summary, histd[i*K_D + j],_= sess.run([merged_summ, obj_d,opt_d], {x_node: x, z_node: z}) #update parameters in direction of gradient
+        		train_writer.add_summary(summary, (K_D + K_G)*i + j)
+        	
+        	for j in range(K_G):
+        		z = sample_Z(M,NOISE_DIM)
+        		summary, histg[i*K_G + j], _ = sess.run([merged_summ, obj_g,opt_g], {x_node: np.zeros((1,784)), z_node: z}) # update generator#
+        		train_writer.add_summary(summary, (K_D + K_G)*i + K_D + j) # TODO: Check if this does not cause a clash with previous add_summary
+        	
+        	hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+        	hist_pred_noise[i] = np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_DIM)} ))
         else:
-            for j in range(K):
-      	         x = mnist.train.images[np.random.choice(image_count, M),:] #Select a mini batch 
-      	         z = sample_Z(M, NOISE_DIM) #Noisy examples
-      	         histd[i],_= sess.run([obj_d,opt_d], {x_node: x, z_node: z}) #update parameters in direction of gradient
-      		
-            z = sample_Z(M,NOISE_DIM)
-            histg[i], _ = sess.run([obj_g,opt_g], {x_node: np.zeros((1,784)), z_node: z}) # update generator#
-      	
-            hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
-            hist_pred_noise[i] = np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_DIM)} ))
-  		
-         #Print some information to see whats happening
-        if i % (TRAIN_ITERS // 10) == 0:		  	
-             print("Iteration: ",float(i)/float(TRAIN_ITERS))
-             print("G objective (Need to maximise):",histg[i])
-             print("D objective (Need to minimise):",histd[i])
-             print("Average 100 Data into D1:",
-             hist_pred_data[i]
-             )
-             print("avg 100 Noise into D1:",
-             hist_pred_noise[i]
-             )
+        	for j in range(K_D):
+        		x = mnist.train.images[np.random.choice(image_count,M),:] #Select a mini batch 
+        		z = sample_Z(M,NOISE_DIM) #Noisy examples
+        		histd[i*K_D + j],_= sess.run([obj_d,opt_d], {x_node: x, z_node: z}) #update parameters in direction of gradient
+        	
+        	#Train generator K_G times
+        	for j in range(K_G):
+        		z = sample_Z(M,NOISE_DIM)
+        		histg[i*K_G + j], _ = sess.run([obj_g,opt_g], {x_node: np.zeros((1,784)), z_node: z}) # update generator
+        	
+        	hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+        	hist_pred_noise[i] = np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_DIM)} ))
+        
+        #Print some information to see whats happening
+        if i % (TRAIN_ITERS // 10) == 0:
+        	print("Iteration: ",float(i)/float(TRAIN_ITERS))
+        	print("G objective (Need to maximise):",histg[i])
+        	print("D objective (Need to minimise):",histd[i])
+        	print("Average 100 Data into D1:",hist_pred_data[i])
+        	print("avg 100 Noise into D1:",hist_pred_noise[i])
+    
     return hist_pred_noise, hist_pred_data,histd, histg
 
 
@@ -124,9 +126,9 @@ def GAN():
     NUM_DIAGN = 500 # Number of diagnostics to compute
     DIAGN_STEP = TRAIN_ITERS / NUM_DIAGN
     M=128 #Minibatch sizes
-    K=1 #Number of repeated training steps for the discrimiantor
-
-
+    K_G = 1 #Number of Generator steps for each TRAIN_ITERS
+    K_D = 10 #Number of Discriminator steps for each TRAIN_ITERS
+    
     #STEP 1: BUILD GRAPH
     G, theta_g, z_node = graph_G_constructor(NOISE_DIM)	#primitive function! Might need more inputs eventually
     D1, D2, theta_d, x_node = graph_D_constructor(G)		#same here
@@ -145,7 +147,7 @@ def GAN():
     test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')					 #files to write out to
     
     #STEP 4: TRAIN NETWORK
-    hist_pred_noise , hist_pred_data,histd, histg = train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer)
+    hist_pred_noise , hist_pred_data,histd, histg = train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer)
     
 	 
 	 #STEP 5: POST-PROCESSING
