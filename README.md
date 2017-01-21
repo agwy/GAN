@@ -20,6 +20,12 @@ Convolutional, layers, dropout, ...
 -> Use dropout on visible layers
 -> Halve weights at test-time (when dropout 0.5): takes geometric mean? Or does fraction depend on dropout probability
 
+
+### Batchnorm
+* Have used L2
+
+-> Try (more robust?) median - quantile transformation?
+
 ## Questions/notes
 
 Also about TensorFlow itself
