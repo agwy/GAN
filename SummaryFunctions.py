@@ -38,7 +38,7 @@ def variable_summaries(var, extended = False):
         tf.summary.histogram('histogram', var)
         
         
-def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_noise, mnist, TRAIN_ITERS, NOISE_Dim):
+def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_Dim):
     #Check performance of 100 noise samples into Discriminator
     print("avg 100 Noise into D1:",
     np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim)} ))
@@ -55,7 +55,7 @@ def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_noise, mnist, 
     plt.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
     plt.savefig("DATA_NOISE.png",bbox_inches="tight")
      
-def pretty_plot(G, z_node, NOISE_Dim):
+def pretty_plot(G, z_node, sess, NOISE_Dim):
     #----------------------Generate samples and plot, save to "pretty_pictures.png" --------------------------------
     samples = sess.run(G, feed_dict={z_node: sample_Z_2(16, NOISE_Dim)})
     fig = plot(samples)

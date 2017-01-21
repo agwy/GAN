@@ -19,38 +19,20 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 FLAGS = None
 
-
-def train():
-    # Import data
-    mnist = input_data.read_data_sets(FLAGS.data_dir,
-                                    one_hot=True,
-                                    fake_data=FLAGS.fake_data)
-
-    TRAIN_ITERS=1000 #Training iterations
-    NOISE_DIM = 100 #Input noise dimension
-    NUM_DIAGN = 500 # Number of diagnostics to compute
-    DIAGN_STEP = TRAIN_ITERS / NUM_DIAGN
-    M=128 #Minibatch sizes
-    K=1 #Number of repeated training steps for the discrimiantor
-
-    #create and link placeholders to nextwork
-  
+#NOTE: Right now, this is rather limited. One could extend this function to take in
+#		 an array specifying the size of a number of layers in the NN, and another one
+#		 specifying which layers take which function (sigmoid, logistic, ...)
+#		 same holds for the next constructor functions below
+#
+def graph_G_constructor(NOISE_DIM):
     with tf.variable_scope('G'):
-        #Noisy input of dimension: Dim
-        z_node = tf.placeholder(tf.float32, shape =  [None, NOISE_DIM]) #feed in batch size
+        #z_node: The input end of the G graph receiving random noise of size
+        #		  NOISE_DIM in float type, where G is built by Generator_NN
+        z_node = tf.placeholder(tf.float32, shape = [None, NOISE_DIM]) 
         G, theta_g = Generator_NN(z_node,NOISE_DIM,784)
-  
-  # OLD VERSION:
-  #with tf.variable_scope('D') as scope:
-  	#x_node = tf.placeholder(tf.float32, shape = [None,784]) #Real images
-  	#D1,theta_d = Discrim_NN(x_node,784,1)
-  	#with tf.name_scope('input_reshape'):
+	return G, theta_g, z_node
 	
-  	#Make copy of D that uses same variables but has G as input
-  	#scope.reuse_variables()
-  	#D2,theta_d = Discrim_NN(G,784,1)
-  	
-    # FIX?
+def graph_D_constructor(G):
     with tf.variable_scope('D') as scope:
         x_node = tf.placeholder(tf.float32, shape = [None,784]) #Real images
         D1, theta_d, D2 = Discrim_NN_fixed(x_node, G, 784, 1)
@@ -58,34 +40,30 @@ def train():
         #tf.summary.image('input', image_shaped_input, 10)
         # TODO: keep track of fixed sampled units
         # TODO: does it display the first or last 10?  
-  	
-  
-  #Both of these objectives need to be minimised (observe the minus sign in front)
+	return D1, D2, theta_d, x_node
+	
+def graph_objectives(D1, D2):
+	 #Both of these objectives need to be minimised (observe the minus sign in front)
     with tf.name_scope('loss_func'):
         obj_d= -tf.reduce_mean(tf.log(D1)+tf.log(1-D2)) 
         tf.summary.scalar('d_loss', obj_d)
         obj_g= -tf.reduce_mean(tf.log(D2))
         tf.summary.scalar('g_loss', obj_g)
-  
+    return obj_d, obj_g
+
+def graph_optimizers(obj_d, obj_g, theta_d, theta_g):
     with tf.name_scope('train'):
         opt_d = tf.train.AdamOptimizer().minimize(obj_d, var_list=theta_d)
-        opt_g = tf.train.AdamOptimizer().minimize(obj_g, var_list=theta_g) 
-        
-    saver = tf.train.Saver() #For saving the fitted model TODO: how to restart a session from a saved metadata
-  
-    #Initalise variables and start session
-    sess = tf.InteractiveSession()
-    init = tf.global_variables_initializer()  
-    sess.run(init)
-  
-    # Merge all summaries and create files to write out to:
-    merged_summ = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph)
-    test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')
-    
-    image_count = mnist.train.images.shape[1]
-  
-    #Storage for objective function values
+        opt_g = tf.train.AdamOptimizer().minimize(obj_g, var_list=theta_g)
+    return opt_d, opt_g
+
+#NOTE: Trains the NN that was set up using the constructor functions from above
+#		 Modifications to the above constructors should be checked for validity by
+#		 running the optimization routine on them
+#
+def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer):
+	
+	 #Storage for objective function values
     histd, histg= np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
     hist_pred_noise, hist_pred_data = np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
   
@@ -129,43 +107,65 @@ def train():
              print("avg 100 Noise into D1:",
              hist_pred_noise[i]
              )
-	    	
+    return hist_pred_noise, hist_pred_data
+
+
+#This function puts everything together 
+def GAN():
+	
+    #STEP 0: IMPORT DATA, DEFINE ALGORITHM SPECIFICS
+    mnist = input_data.read_data_sets(FLAGS.data_dir,
+                                    one_hot=True,
+                                    fake_data=FLAGS.fake_data)
+    image_count = mnist.train.images.shape[1]
+
+    TRAIN_ITERS=1000 #Training iterations
+    NOISE_DIM = 100 #Input noise dimension
+    NUM_DIAGN = 500 # Number of diagnostics to compute
+    DIAGN_STEP = TRAIN_ITERS / NUM_DIAGN
+    M=128 #Minibatch sizes
+    K=1 #Number of repeated training steps for the discrimiantor
+
+
+    #STEP 1: BUILD GRAPH
+    G, theta_g, z_node = graph_G_constructor(NOISE_DIM)	#primitive function! Might need more inputs eventually
+    D1, D2, theta_d, x_node = graph_D_constructor(G)		#same here
+    obj_d, obj_g = graph_objectives(D1, D2)					#objectives for D and G
+    opt_d, opt_g = graph_optimizers(obj_d, obj_g, theta_d, theta_g)	#optimizers for D and G 
+    saver = tf.train.Saver() #For saving the fitted model TODO: how to restart a session from a saved metadata
+  
+    #STEP 2: INITIALIZE VARIABLES & START SESSION 
+    sess = tf.InteractiveSession()
+    init = tf.global_variables_initializer()  
+    sess.run(init)
+  
+    #STEP 3: MERGE SUMMARIES, CREATE LOG FILES Merge all summaries and create 
+    merged_summ = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph) #files to write out to
+    test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')					 #files to write out to
+    
+    #STEP 4: TRAIN NETWORK
+    hist_pred_noise , hist_pred_data = train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer)
+	 
+	 #STEP 5: POST-PROCESSING
+	 #close the summary writers that added to the log files	
     train_writer.close()
     test_writer.close()
-  
-    #Check performance of 100 noise samples into Discriminator
-    print("avg 100 Noise into D1:",
-    np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_DIM)} ))
-    )
-
-    #Check performance of 100 data inputs into discriminator
-    print("Average 100 Data into D1:",
-    np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
-    )
-
-
-    plt.figure(1)
-    plt.subplot(211)
-    plt.plot(range(TRAIN_ITERS), hist_pred_data , 'b-')
-
-    plt.subplot(212)
-    plt.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
-    plt.savefig("DATA_NOISE.png",bbox_inches="tight")
-
-    #----------------------Generate samples and plot, save to "pretty_pictures.png" --------------------------------
-    samples = sess.run(G, feed_dict={z_node: sample_Z(16, NOISE_DIM)})
-    fig = plot(samples)
-    plt.savefig('pretty_plot.png', bbox_inches='tight')
-    # TODO: need to find regions of high probability mass to generate sensible figures (interpolation pherhaps?)
-
+    
+    #Save some pictures of the noise and the generated pictures
+    data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_DIM)
+    pretty_plot(G, z_node, sess, NOISE_DIM)
+    
     #Save the fitted model
     saver.save(sess, 'my-model')
+    
+    
   
 def main(_):
     if tf.gfile.Exists(FLAGS.log_dir):
         tf.gfile.DeleteRecursively(FLAGS.log_dir)
     tf.gfile.MakeDirs(FLAGS.log_dir)
-    train()
+    GAN()
     #FEW if any of these flags are used....
     
 if __name__ == '__main__':
