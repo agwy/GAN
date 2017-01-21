@@ -13,6 +13,13 @@ i.e. how we let the GANS interact, optimization, which kind of GAN set-up (condi
 
 Convolutional, layers, dropout, ...
 
+### Dropout
+* Use 0.2 dropout probability
+* Only on hidden layers to start with
+
+-> Use dropout on visible layers
+-> Halve weights at test-time (when dropout 0.5): takes geometric mean? Or does fraction depend on dropout probability
+
 ## Questions/notes
 
 Also about TensorFlow itself
