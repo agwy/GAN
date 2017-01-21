@@ -48,12 +48,23 @@ def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pre
     np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
     )
   	 #Generate the plot of DATA_NOISE and save to hard drive
-    plt.figure(1)
-    plt.subplot(211)
-    plt.plot(range(TRAIN_ITERS), hist_pred_data , 'b-')
-    plt.subplot(212)
-    plt.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
+    fig = plt.figure()
+    ax1 = fig.add_subplot(211)
+    ax1.plot(range(TRAIN_ITERS), hist_pred_data , 'b-')
+    ax2 = fig.add_subplot(212)
+    ax2.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
     plt.savefig("DATA_NOISE.png",bbox_inches="tight")
+
+def Loss_function_png(histd, histg):
+	fig = plt.figure()
+	ax1 = fig.add_subplot(211)
+	ax1.plot(range(histg.shape[0]), histg , 'b-')
+	ax1.set_title("Generator Loss Function")
+	ax2 = fig.add_subplot(212)
+	ax2.plot(range(histg.shape[0]), histd  , 'b-')
+	ax2.set_title("Discriminator Loss Function")
+	plt.savefig("Loss_Functions.png",bbox_inches="tight")
+	
      
 def pretty_plot(G, z_node, sess, NOISE_Dim):
     #----------------------Generate samples and plot, save to "pretty_pictures.png" --------------------------------

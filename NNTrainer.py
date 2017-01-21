@@ -107,7 +107,7 @@ def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K, image_count, sess, mnist,
              print("avg 100 Noise into D1:",
              hist_pred_noise[i]
              )
-    return hist_pred_noise, hist_pred_data
+    return hist_pred_noise, hist_pred_data,histd, histg
 
 
 #This function puts everything together 
@@ -145,7 +145,8 @@ def GAN():
     test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')					 #files to write out to
     
     #STEP 4: TRAIN NETWORK
-    hist_pred_noise , hist_pred_data = train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer)
+    hist_pred_noise , hist_pred_data,histd, histg = train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K, image_count, sess, mnist, D1, D2, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer)
+    
 	 
 	 #STEP 5: POST-PROCESSING
 	 #close the summary writers that added to the log files	
@@ -155,6 +156,7 @@ def GAN():
     #Save some pictures of the noise and the generated pictures
     data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_DIM)
     pretty_plot(G, z_node, sess, NOISE_DIM)
+    Loss_function_png(histd, histg)
     
     #Save the fitted model
     saver.save(sess, 'my-model')
