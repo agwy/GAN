@@ -24,7 +24,7 @@ def sample_Z(m, n):
 
     
   #Basic NN layer without link function, combine these 
-def nn_layer(input_tensor, input_dim, output_dim, layer_name, double_input = None):
+def nn_layer(input_tensor, input_dim, output_dim, layer_name, double_input = None, dropout = 0):
     with tf.name_scope(layer_name):
         with tf.name_scope('weights'):
             weights = tf.Variable(xavier_init([input_dim, output_dim]))
@@ -39,7 +39,16 @@ def nn_layer(input_tensor, input_dim, output_dim, layer_name, double_input = Non
             if double_input != None:
                 preactivate2 = tf.matmul(double_input, weights) + biases
             else: preactivate2 = None
-    return preactivate, preactivate2, weights, biases
+            
+            if dropout > 0: 
+                mask_dropout = tf.nn.dropout(tf.constant(1.0, shape = [1, output_dim]), dropout)
+                activate = tf.multiply(preactivate, mask_dropout)
+                activate2 = tf.multiply(preactivate2, mask_dropout)
+            else: 
+                activate = preactivate
+                activate2 = preactivate2        
+
+    return activate, activate2, weights, biases
     
 
 #NOTE: epsilon makes sure that the variance is not estimated to be zero and is added to the variance estimation
@@ -78,15 +87,12 @@ def nn_bn_layer(input_tensor, input_dim, output_dim, layer_name, double_input = 
             variable_summaries(preactivate)           
             tf.summary.histogram('pre_activations', preactivate)
         return preactivate, preactivate2, weights, biases
-    
-    
-
          
   #----------Models-Copied from blogpost in slack, should give atleast a reasonable result------------------------------------------
   
   #Generator NN: z -> (100,128) -> reLU -> (128,784) -> Sigmoid
 def Generator_NN(input, input_dim, output_dim):
-    hidden_1, _, w1, b1 = nn_b_layer(input, input_dim, 128, 'layer1_G')				
+    hidden_1, _, w1, b1 = nn_layer(input, input_dim, 128, 'layer1_G')				
     hidden_2, _, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_G')
     return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2]
   
@@ -96,8 +102,8 @@ def Discrim_NN(input_x, input_dim, output_dim):
     hidden_2, _, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_D')
     return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2]
   	
-def Discrim_NN_fixed(input_x, input_G, input_dim, output_dim):
-    hidden_1, hidden_1_G, w1, b1 = nn_layer(input_x, input_dim, 128, 'layer1_D', double_input = input_G)
+def Discrim_NN_fixed(input_x, input_G, input_dim, output_dim, dropout = 0.8):
+    hidden_1, hidden_1_G, w1, b1 = nn_layer(input_x, input_dim, 128, 'layer1_D', double_input = input_G, dropout = dropout)
     hidden_2, hidden_2_G, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_D', double_input = hidden_1_G)
     return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2], tf.nn.sigmoid(hidden_2_G)
     
