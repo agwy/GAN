@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from SummaryFunctions import *
 
 #----------------Various ways of initalising the parameters----------------------
 def xavier_init(size):
@@ -36,25 +37,25 @@ def nn_layer(input_tensor, input_dim, output_dim, layer_name, double_input = Non
             if double_input != None:
                 preactivate2 = tf.matmul(double_input, weights) + biases
             else: preactivate2 = None
-    return preactivate,weights,biases, preactivate2
+    return preactivate, preactivate2, weights, biases
          
   #----------Models-Copied from blogpost in slack, should give atleast a reasonable result------------------------------------------
   
   #Generator NN: z -> (100,128) -> reLU -> (128,784) -> Sigmoid
 def Generator_NN(input, input_dim, output_dim):
-    hidden_1,w1,b1, _ = nn_layer(input, input_dim, 128, 'layer1_G')
-    hidden_2,w2,b2, _ = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_G')
+    hidden_1, _, w1, b1 = nn_layer(input, input_dim, 128, 'layer1_G')
+    hidden_2, _, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_G')
     return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2]
   
   #Discrimiantor NN: x -> (784,128) -> reLU -> (128,1) -> sigmoid  
 def Discrim_NN(input_x, input_dim, output_dim):
-    hidden_1,w1,b1, _ = nn_layer(input_x, input_dim, 128, 'layer1_D')
-    hidden_2,w2,b2, _ = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_D')
+    hidden_1, _, w1, b1 = nn_layer(input_x, input_dim, 128, 'layer1_D')
+    hidden_2, _, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_D')
     return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2]
   	
 def Discrim_NN_fixed(input_x, input_G, input_dim, output_dim):
-    hidden_1,w1,b1, hidden_1_G = nn_layer(input_x, input_dim, 128, 'layer1_D', double_input = input_G)
-    hidden_2,w2,b2, hidden_2_G = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_D', double_input = hidden_1_G)
+    hidden_1, hidden_1_G, w1, b1 = nn_layer(input_x, input_dim, 128, 'layer1_D', double_input = input_G)
+    hidden_2, hidden_2_G, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 128, output_dim, 'layer2_D', double_input = hidden_1_G)
     return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2], tf.nn.sigmoid(hidden_2_G)
     
   
