@@ -28,10 +28,10 @@ def nn_layer(input_tensor, input_dim, output_dim, layer_name, double_input = Non
     with tf.name_scope(layer_name):
         with tf.name_scope('weights'):
             weights = tf.Variable(xavier_init([input_dim, output_dim]))
-            variable_summaries(weights)
+            #variable_summaries(weights)
         with tf.name_scope('biases'):
             biases = bias_variable([output_dim])
-            variable_summaries(biases)
+            #variable_summaries(biases)
         with tf.name_scope('Wx_plus_b'):
             preactivate = tf.matmul(input_tensor, weights) + biases
             variable_summaries(preactivate)
@@ -58,23 +58,39 @@ def nn_layer(input_tensor, input_dim, output_dim, layer_name, double_input = Non
     
 # NOT WORKING YET: mean and variance after normalization are not always 0 and 1 (see tensorboard summary) Also need tp edit in case of non-double input
 # Also, need to correct for dropout? Or after second thought, not.
-def bn_layer(input_tensor, layer_name, double_input = None, epsilon = 1e-12):
+# Preferably not use this: we use information of real images in network for fake images?
+def joint_bn_layer(input_tensor, layer_name, double_input = None, epsilon = 1e-12):
     with tf.name_scope('batch_norm'):
         if double_input != None:
             input_shape = tf.shape(input_tensor)
             input_shape2 = tf.shape(double_input)
             inputs = tf.concat(0,[input_tensor, double_input])
             mean, variance = tf.nn.moments(inputs, [0])
-            norm_inputs = (inputs - mean) / tf.sqrt(tf.maximum(variance, epsilon))
+            scale = tf.ones([input_shape[1]])
+            beta = tf.zeros([input_shape[1]])
+            norm_inputs = tf.nn.batch_normalization(inputs, mean, variance, beta, scale, epsilon)
+            #norm_inputs = (inputs - mean) / tf.sqrt(tf.maximum(variance, epsilon))
             mean_check, variance_check = tf.nn.moments(norm_inputs, [0])
             tf.summary.scalar('variance_check', variance_check[2])
             tf.summary.scalar('mean_check', mean_check[2])
-            # norm_inputs = tf.nn.l2_normalize(inputs, 0, epsilon=epsilon) # Only scales...
             norm_input1 = tf.slice(norm_inputs, [0, 0], input_shape)
             norm_input2 = tf.slice(norm_inputs, [input_shape[0], 0], input_shape2) # TODO: check if this yields the correct output input_shape is the right beginning # TODO: check normalization and 
             return norm_input1, norm_input2
         else: 
-            return tf.nn.l2_normalize(input_tensor, 0, epsilon=epsilon), None ## TODO: NEED to edit still
+            inputs = input_tensor
+            mean, variance = tf.nn.moments(inputs, [0])
+            scale = tf.ones([input_shape[1]]); beta = tf.zeros([input_shape[1]])
+            return tf.nn.batch_normalization(inputs, mean, variance, beta, scale, epsilon) ## TODO: check
+
+# also not really standardized?      Doesn't seem to be working....      
+def bn_layer(input_tensor, layer_name, double_input = None, epsilon = 1e-12):
+    with tf.name_scope('batch_norm'):
+        norm_input1 = BN_tensor(input_tensor, epsilon)
+        if double_input != None:
+            norm_input2 = BN_tensor(double_input, epsilon)
+            mean_check, variance_check = tf.nn.moments(norm_input2, [0])
+        else: norm_input2 = None
+        return norm_input1, norm_input2
         
          
   #----------Models-Copied from blogpost in slack, should give atleast a reasonable result------------------------------------------
@@ -84,6 +100,7 @@ def Generator_NN(input, input_dim, output_dim, dropout = 0.8, bn = 'dont use bat
     hidden_1, _, w1, b1 = nn_layer(input, input_dim, 202, 'layer1_G', dropout = dropout)	
     #if bn == 'l2': hidden_1, _ = bn_layer(hidden_1, 'norm1')			
     hidden_2, _, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 202, output_dim, 'layer2_G')
+    #hidden_3, _, w3, b3 = nn_layer(tf.nn.relu(hidden_2), 201, output_dim, 'layer3_G')
     return (tf.nn.tanh(hidden_2) + 1)/2,[w1,w2,b1,b2]
   
   #Discrimiantor NN: x -> (784,128) -> reLU -> (128,1) -> sigmoid  
@@ -94,12 +111,21 @@ def Discrim_NN(input_x, input_dim, output_dim):
   	
 def Discrim_NN_fixed(input_x, input_G, input_dim, output_dim, dropout = 0.8, bn = 'dont use batchnormalization'):
     hidden_1, hidden_1_G, w1, b1 = nn_layer(input_x, input_dim, 126, 'layer1_D', double_input = input_G, dropout = dropout)
-    #if bn == 'l2': hidden_1, hidden_1_G = bn_layer(hidden_1, 'norm1', double_input = hidden_1_G)
+    #if bn == 'l2': 
+    #hidden_1, hidden_1_G = bn_layer(hidden_1, 'norm1', double_input = hidden_1_G)
     hidden_2, hidden_2_G, w2, b2 = nn_layer(tf.nn.relu(hidden_1), 126, output_dim, 'layer2_D', double_input = hidden_1_G)
     return tf.nn.sigmoid(hidden_2),[w1,w2,b1,b2], tf.nn.sigmoid(hidden_2_G)
     
     
-    
+  #----------------- helper-functions ---------------------------------------------------------------------------------------------
+def BN_tensor(input_tensor, epsilon):
+    input_shape = tf.shape(input_tensor)
+    mean, variance = tf.nn.moments(input_tensor, [0])
+    scale = tf.ones([input_shape[1]])
+    beta = tf.zeros([input_shape[1]])
+    return tf.nn.batch_normalization(input_tensor, mean, variance, beta, scale, epsilon)
+
+
 ## DEPRECATED:   
 #NOTE: epsilon makes sure that the variance is not estimated to be zero and is added to the variance estimation
 #      Also, do NOT use this for the first layer as it has positive bias in the BN-translated inputs (easily modified)

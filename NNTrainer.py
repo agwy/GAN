@@ -123,11 +123,11 @@ def GAN():
 
     TRAIN_ITERS=1000 #Training iterations
     NOISE_DIM = 200 #Input noise dimension
-    NUM_DIAGN = 500 # Number of diagnostics to compute
+    NUM_DIAGN = 100 # Number of diagnostics to compute
     DIAGN_STEP = TRAIN_ITERS / NUM_DIAGN
     M=127 #Minibatch sizes
     K_G = 1 #Number of Generator steps for each TRAIN_ITERS
-    K_D = 2 #Number of Discriminator steps for each TRAIN_ITERS
+    K_D = 1 #Number of Discriminator steps for each TRAIN_ITERS
     
     #STEP 1: BUILD GRAPH
     G, theta_g, z_node = graph_G_constructor(NOISE_DIM)	#primitive function! Might need more inputs eventually
