@@ -53,8 +53,8 @@ def graph_objectives(D1, D2):
 
 def graph_optimizers(obj_d, obj_g, theta_d, theta_g):
     with tf.name_scope('train'):
-        opt_d = tf.train.AdamOptimizer().minimize(obj_d, var_list=theta_d)
-        opt_g = tf.train.AdamOptimizer().minimize(obj_g, var_list=theta_g)
+        opt_d = tf.train.AdamOptimizer(0.0001).minimize(obj_d, var_list=theta_d)
+        opt_g = tf.train.AdamOptimizer(0.0001).minimize(obj_g, var_list=theta_g)
     return opt_d, opt_g
 
 #NOTE: Trains the NN that was set up using the constructor functions from above
@@ -81,12 +81,12 @@ def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, 
         		train_writer.add_summary(summary, (K_D + K_G)*i + j)
         	
         	for j in range(K_G):
-        		z = sample_Z(M,NOISE_DIM)
+        		z = sample_Z(M, NOISE_DIM)
         		summary, histg[i*K_G + j], _ = sess.run([merged_summ, obj_g,opt_g], {x_node: np.zeros((1,784)), z_node: z}) # update generator#
         		train_writer.add_summary(summary, (K_D + K_G)*i + K_D + j) # TODO: Check if this does not cause a clash with previous add_summary
         	
-        	hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
-        	hist_pred_noise[i] = np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_DIM)} ))
+        	hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:], z_node : np.zeros((0,NOISE_DIM))} )) # empty input
+        	hist_pred_noise[i] = np.mean(sess.run([D2],{x_node : np.zeros((0,784)), z_node: sample_Z(100,NOISE_DIM)} )) # empty input
         else:
         	for j in range(K_D):
         		x = mnist.train.images[np.random.choice(image_count,M),:] #Select a mini batch 
@@ -96,10 +96,10 @@ def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, 
         	#Train generator K_G times
         	for j in range(K_G):
         		z = sample_Z(M,NOISE_DIM)
-        		histg[i*K_G + j], _ = sess.run([obj_g,opt_g], {x_node: np.zeros((1,784)), z_node: z}) # update generator
+        		histg[i*K_G + j], _ = sess.run([obj_g,opt_g], {x_node: np.zeros((1,784)), z_node: z}) # update generator # TODO
         	
-        	hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
-        	hist_pred_noise[i] = np.mean(sess.run([D2],{z_node: sample_Z(100,NOISE_DIM)} ))
+        	hist_pred_data[i] = np.mean(sess.run(D1,{x_node: mnist.train.images[np.random.choice(image_count,100),:], z_node : np.zeros((3,NOISE_DIM))} )) # TODO
+        	hist_pred_noise[i] = np.mean(sess.run([D2],{x_node: np.zeros((0,784)), z_node: sample_Z(100,NOISE_DIM)} )) # empty input
         
         #Print some information to see whats happening
         if i % (TRAIN_ITERS // 10) == 0:
@@ -122,12 +122,12 @@ def GAN():
     image_count = mnist.train.images.shape[1]
 
     TRAIN_ITERS=1000 #Training iterations
-    NOISE_DIM = 100 #Input noise dimension
+    NOISE_DIM = 200 #Input noise dimension
     NUM_DIAGN = 500 # Number of diagnostics to compute
     DIAGN_STEP = TRAIN_ITERS / NUM_DIAGN
-    M=128 #Minibatch sizes
+    M=127 #Minibatch sizes
     K_G = 1 #Number of Generator steps for each TRAIN_ITERS
-    K_D = 10 #Number of Discriminator steps for each TRAIN_ITERS
+    K_D = 2 #Number of Discriminator steps for each TRAIN_ITERS
     
     #STEP 1: BUILD GRAPH
     G, theta_g, z_node = graph_G_constructor(NOISE_DIM)	#primitive function! Might need more inputs eventually
@@ -191,5 +191,18 @@ if __name__ == '__main__':
                   help='Summaries log directory')
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    
+def test_code_bn():
+    test1 = tf.placeholder(tf.float32, shape = [None, 2])
+    test2 = tf.placeholder(tf.float32, shape = [None, 2])
+    input_shape = tf.shape(test1)
+    input_shape2 = tf.shape(test2)
+    inputs = tf.concat(0,[test1, test2])
+    mean, variance = tf.nn.moments(inputs, [0])
+    norm_inputs = (inputs - mean) / tf.sqrt(tf.maximum(variance, 1e-12))
+    #norm_inputs = tf.nn.fused_batch_norm(inputs, 1.0, 0.0)
+    norm_input1 = tf.slice(norm_inputs, [0, 0], input_shape)
+    norm_input2 = tf.slice(norm_inputs, [input_shape[0], 0], input_shape2) # TODO: check if this yields the correct output input_shape is the right beginning # TODO: check normalization and 
+    print("test output: ", sess.run([variance, inputs, norm_inputs, norm_input1], {test1 : np.zeros((3,2)), test2 : np.array([[1e-10,1]])} ))
 
 

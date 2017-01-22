@@ -41,11 +41,11 @@ def variable_summaries(var, extended = False):
 def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_Dim):
     #Check performance of 100 noise samples into Discriminator
     print("avg 100 Noise into D1:",
-    np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim)} ))
+    np.mean(sess.run([D2],{x_node: np.zeros((0,784)), z_node: sample_Z_2(100,NOISE_Dim)} )) # empty input
     )
     #Check performance of 100 data inputs into discriminator
     print("Average 100 Data into D1:",
-    np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+    np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:], z_node: np.zeros((0, NOISE_Dim))} )) # empty input
     )
   	 #Generate the plot of DATA_NOISE and save to hard drive
     fig = plt.figure()
@@ -72,12 +72,10 @@ def Loss_function_png(histd, histg):
      
 def pretty_plot(G, z_node, sess, NOISE_Dim):
     #----------------------Generate samples and plot, save to "pretty_pictures.png" --------------------------------
-    samples = sess.run(G, feed_dict={z_node: sample_Z_2(16, NOISE_Dim)})
+    samples = sess.run(G, feed_dict={z_node: sample_Z_2(16, NOISE_Dim)}) 
     fig = plot(samples)
     plt.savefig('pretty_plot.png', bbox_inches='tight')
     # TODO: need to find regions of high probability mass to generate sensible figures (interpolation pherhaps?)
 
-        
-        
         
         
