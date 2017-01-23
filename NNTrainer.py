@@ -6,7 +6,7 @@ from PIL import Image,ImageDraw
 import argparse
 import sys 
 import os
-
+import time
 
 import tensorflow as tf
 import numpy as np
@@ -75,7 +75,7 @@ def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, 
         	print("Average 100 Data into D1:",hist_pred_data[i])
         	print("avg 100 Noise into D1:",hist_pred_noise[i])
         	#Save a plot image
-        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i)
+        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i,FLAGS.filedir)
         	picture_count += 1
         	
     
@@ -110,16 +110,21 @@ def GAN():
     
     #STEP 3: MERGE SUMMARIES, CREATE LOG FILES Merge all summaries and create 
     merged_summ = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph) #files to write out to
-    test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')					 #files to write out to
+    train_writer = tf.summary.FileWriter(FLAGS.filedir + FLAGS.log_dir + '/train', sess.graph) #files to write out to
+    test_writer = tf.summary.FileWriter(FLAGS.filedir + FLAGS.log_dir + '/test')					 #files to write out to
     
-    if not os.path.exists('pictures/'):
-    	os.makedirs('pictures/')
-    	    
+    print(FLAGS.filedir)
+    if not os.path.exists(FLAGS.filedir):
+    	os.makedirs(FLAGS.filedir)
+    if not os.path.exists(FLAGS.filedir + "pictures/"):
+    	os.makedirs(FLAGS.filedir + "pictures/")    
+    
     #STEP 4: TRAIN NETWORK
+    start = time.clock()
     hist_pred_noise , hist_pred_data,histd, histg = train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, 
     																			D_real, D_fake,G, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer)
-
+    elapsed = (time.clock() - start)
+    print("Total Run time:",elapsed)
 	 
 	 #STEP 5: POST-PROCESSING
 	 #close the summary writers that added to the log files	
@@ -127,20 +132,28 @@ def GAN():
     test_writer.close()
     
     #Save some pictures of the noise and the generated pictures
-    data_noise_png(D_real, D_fake, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_DIM)
-    #pretty_plot(G, z_node, sess, NOISE_DIM)
-    makeAnimatedGif()
-    Loss_function_png(histd, histg)
+    data_noise_png(D_real, D_fake, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_DIM,FLAGS.filedir)
+    
+    makeAnimatedGif(FLAGS.filedir)
+    Loss_function_png(histd, histg,FLAGS.filedir)
     
     #Save the fitted model
-    saver.save(sess, 'my-model')
+    saver.save(sess, FLAGS.filedir + 'my-model')
+    file = open(FLAGS.filedir + 'Run_Info.txt',"w") 
+    file.write("TRAIN_ITERS= "+str(TRAIN_ITERS) + "\n")
+    file.write("NOISE_DIM= " + str(NOISE_DIM)+ "\n") 
+    file.write("Minibatch_size (M)= "+str(M)+ "\n")
+    file.write("K_G= "+str(K_G)+ "\n")
+    file.write("K_D= "+str(K_D)+ "\n")
+    file.write("Run_Time= "+str(elapsed)+ "\n")
+    file.close() 
     
     
   
 def main(_):
-    if tf.gfile.Exists(FLAGS.log_dir):
-        tf.gfile.DeleteRecursively(FLAGS.log_dir)
-    tf.gfile.MakeDirs(FLAGS.log_dir)
+    if tf.gfile.Exists(FLAGS.filedir + FLAGS.log_dir):
+        tf.gfile.DeleteRecursively(FLAGS.filedir + FLAGS.log_dir)
+    tf.gfile.MakeDirs(FLAGS.filedir + FLAGS.log_dir)
     GAN()
     #FEW if any of these flags are used....
     
@@ -161,6 +174,8 @@ if __name__ == '__main__':
                   help='Directory for storing input data')
     parser.add_argument('--log_dir', type=str, default='logs/mnist_with_summaries',
                   help='Summaries log directory')
+    parser.add_argument('--filedir', type=str, default='output/'+str(time.time())+"/",
+                  help='Store information from this run')
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
 
