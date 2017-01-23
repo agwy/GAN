@@ -91,16 +91,17 @@ def GAN():
                                     fake_data=FLAGS.fake_data)
     image_count = mnist.train.images.shape[1]
 
-    TRAIN_ITERS= 100 #Training iterations
+    TRAIN_ITERS= 10000 #Training iterations
     NOISE_DIM = 100 #Input noise dimension
-    NUM_DIAGN = 500 # Number of diagnostics to compute
+    NUM_DIAGN = 100 # Number of diagnostics to compute
     DIAGN_STEP = TRAIN_ITERS / NUM_DIAGN
     M= 128 #Minibatch sizes
     K_G = 1 #Number of Generator steps for each TRAIN_ITERS
     K_D = 1 #Number of Discriminator steps for each TRAIN_ITERS
     
-    G,D_real,D_fake,theta_g,theta_d,x_node,z_node = full_graph(NOISE_DIM)
-    obj_d, obj_g = graph_objectives(D_real, D_fake)
+    G,D_real,D_fake,theta_g,theta_d,x_node,z_node, pre_D_real, pre_D_fake = full_graph(NOISE_DIM)
+    #obj_d, obj_g = graph_objectives(D_real, D_fake)    # <---------------- choose the loss-function
+    obj_d, obj_g = graph_objectives_alternative(pre_D_real, pre_D_fake)
     opt_d, opt_g = graph_optimizers(obj_d, obj_g, theta_d, theta_g)
     
     sess = tf.InteractiveSession()
