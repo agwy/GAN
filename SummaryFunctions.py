@@ -44,16 +44,7 @@ def variable_summaries(var, extended = False):
         tf.summary.histogram('histogram', var)
         
         
-def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_Dim,filedir):
-    #Check performance of 100 noise samples into Discriminator
-    print("avg 100 Noise into D1:",
-    np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim)} ))
-    )
-    #Check performance of 100 data inputs into discriminator
-    print("Average 100 Data into D1:",
-    np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
-    )
-  	 #Generate the plot of DATA_NOISE and save to hard drive
+def data_noise_png(hist_pred_data, hist_pred_noise, TRAIN_ITERS, NOISE_Dim,filedir):
     fig = plt.figure()
     ax1 = fig.add_subplot(211)
     ax1.plot(range(TRAIN_ITERS), hist_pred_data , 'b-')
@@ -63,7 +54,7 @@ def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pre
     ax2.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
     ax2.set_title("Discriminator vs Noise")
     
-    plt.savefig("DATA_NOISE.png",bbox_inches="tight")
+    plt.savefig(filedir + "DATA_NOISE.png",bbox_inches="tight")
 
 def Loss_function_png(histd, histg,filedir):
 	fig = plt.figure()

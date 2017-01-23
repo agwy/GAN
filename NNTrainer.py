@@ -133,7 +133,7 @@ def GAN():
     test_writer.close()
     
     #Save some pictures of the noise and the generated pictures
-    data_noise_png(D_real, D_fake, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_DIM,FLAGS.filedir)
+    data_noise_png(hist_pred_data, hist_pred_noise,TRAIN_ITERS, NOISE_DIM,FLAGS.filedir)
     
     makeAnimatedGif(FLAGS.filedir)
     Loss_function_png(histd, histg,FLAGS.filedir)
@@ -149,7 +149,6 @@ def GAN():
     file.write("Run_Time= "+str(elapsed)+ "\n")
     file.close() 
     
-        
     runinfo = np.stack((hist_pred_noise, hist_pred_data,histd,histg),axis=1)
     np.savetxt(FLAGS.filedir + "Runtime_diagonistics.txt",runinfo,header = "Discriminator_Noise,Discriminator_Data,Discriminator_Score,Generator_Score")
     
