@@ -43,7 +43,7 @@ def full_graph(NOISE_DIM):
     D_h1_fake = tf.nn.relu(tf.matmul(G, D_W1) + D_b1)
     D_fake = tf.nn.sigmoid(tf.matmul(D_h1_fake, D_W2) + D_b2)
     
-    return G,D_fake,D_real,theta_g,theta_d,x_node,z_node
+    return G,D_real,D_fake,theta_g,theta_d,x_node,z_node
 	
 
 
@@ -96,12 +96,12 @@ def f_star_Pear(activated):
 	return tf.scalar_mul(0.25,tf.multiply(activated,activated)) + activated
 
 
-def graph_objectives_2(D1, D2):
+def graph_objectives_2(D_real, D_fake):
 	 #Both of these objectives need to be minimised (observe the minus sign in front)
     with tf.name_scope('loss_func'):
-        obj_d= -tf.reduce_mean(g_f(D1) - f_star(g_f(D2)))        			 
+        obj_d= -tf.reduce_mean(g_f(D_real) - f_star(g_f(D_fake)))        			 
         tf.summary.scalar('d_loss', obj_d)
-        obj_g= -tf.reduce_mean(g_f(D2))
+        obj_g= -tf.reduce_mean(D_fake)
         tf.summary.scalar('g_loss', obj_g)
     return obj_d, obj_g
 	
