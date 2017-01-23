@@ -2,14 +2,20 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import sys 
+import os
+
+from subprocess import call
 
 
 def sample_Z_2(m, n):
-    return np.random.uniform(-1., 1., size=[m, n])	  
+	return np.random.uniform(-1., 1., size=[m, n])	
+    #return np.random.normal(0,1, size=[m, n]) 
 
 #-----------------Plot function for grid of pictures-----------------------------------
-def plot(samples):
+def plot(samples,Iteration=0):
     fig = plt.figure(figsize=(4, 4))
+    plt.suptitle("Iteration: " + str(Iteration))
     gs = gridspec.GridSpec(4, 4)
     gs.update(wspace=0.05, hspace=0.05)
   	
@@ -41,11 +47,11 @@ def variable_summaries(var, extended = False):
 def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_Dim):
     #Check performance of 100 noise samples into Discriminator
     print("avg 100 Noise into D1:",
-    np.mean(sess.run([D2],{x_node: np.zeros((0,784)), z_node: sample_Z_2(100,NOISE_Dim)} )) # empty input
+    np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim)} ))
     )
     #Check performance of 100 data inputs into discriminator
     print("Average 100 Data into D1:",
-    np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:], z_node: np.zeros((0, NOISE_Dim))} )) # empty input
+    np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
     )
   	 #Generate the plot of DATA_NOISE and save to hard drive
     fig = plt.figure()
@@ -70,12 +76,20 @@ def Loss_function_png(histd, histg):
 	plt.savefig("Loss_Functions.png",bbox_inches="tight")
 	
      
-def pretty_plot(G, z_node, sess, NOISE_Dim):
+def pretty_plot(G, z_node, sess, NOISE_Dim,Picture_count = 0,Iteration=0):
     #----------------------Generate samples and plot, save to "pretty_pictures.png" --------------------------------
-    samples = sess.run(G, feed_dict={z_node: sample_Z_2(16, NOISE_Dim)}) 
-    fig = plot(samples)
-    plt.savefig('pretty_plot.png', bbox_inches='tight')
+    samples = sess.run(G, feed_dict={z_node: sample_Z_2(16, NOISE_Dim)})
+    fig = plot(samples,Iteration)
+    
+    plt.savefig('pictures/{}.png'.format(str(Picture_count).zfill(3)), bbox_inches='tight')
     # TODO: need to find regions of high probability mass to generate sensible figures (interpolation pherhaps?)
 
+def makeAnimatedGif():
+    # Recursively list image files and store them in a variable
+    os.system('convert -delay 35 -loop 0 pictures/*.png animation.gif')
+
+
+        
+        
         
         
