@@ -149,6 +149,10 @@ def GAN():
     file.write("Run_Time= "+str(elapsed)+ "\n")
     file.close() 
     
+        
+    runinfo = np.stack((hist_pred_noise, hist_pred_data,histd,histg),axis=1)
+    np.savetxt(FLAGS.filedir + "Runtime_diagonistics.txt",runinfo,header = "Discriminator_Noise,Discriminator_Data,Discriminator_Score,Generator_Score")
+    
     
   
 def main(_):
