@@ -32,11 +32,13 @@ def full_graph(NOISE_DIM):
     G_b2 = tf.Variable(tf.zeros(shape=[784]))
     theta_g = [G_W1, G_W2, G_b1, G_b2]
     
-    #Build G, we have forced the variables to defined as above
-    G_h1 = tf.nn.relu(tf.matmul(z_node, G_W1) + G_b1)
+    # Build G, we have forced the variables to defined as above
+    #G_h1 = tf.nn.relu(tf.matmul(z_node, G_W1) + G_b1) # <- old version
+    G_h1 = build_layer(z_node, G_W1, G_b1, keep_prob = 0.8)
     G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
-    G = tf.nn.sigmoid(G_log_prob)
+    G = tf.nn.sigmoid(G_log_prob)    
     
+    # Build D:
     D_h1_real = tf.nn.relu(tf.matmul(x_node, D_W1) + D_b1)
     pre_D_real = tf.matmul(D_h1_real, D_W2) + D_b2
     D_real = tf.nn.sigmoid(pre_D_real)
@@ -82,7 +84,11 @@ def graph_optimizers(obj_d, obj_g, theta_d, theta_g):
 ##-----------------network-builder helperfunctions----------	
 def build_layer(inputs, weights, biases, link_func = tf.nn.relu, keep_prob = 1, BN = False):
     # TODO: BN, dropout
-    return link_func(tf.matmul(inputs, weights) + biases)
+    preactive = link_func(tf.matmul(inputs, weights) + biases)
+    if (keep_prob < 1 and keep_prob > 0): 
+        return tf.nn.dropout(preactive, keep_prob)
+    else: 
+        return preactive                  
 
 
 ##---f-gan---
