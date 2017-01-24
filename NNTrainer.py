@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+
 from SummaryFunctions import *
 from NNBuilder import *
 
@@ -26,9 +27,9 @@ FLAGS = None
 #		 Modifications to the above constructors should be checked for validity by
 #		 running the optimization routine on them
 #
-def train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2,G, x_node, z_node, y_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer):
+def train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2,G, x_node, z_node, y_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer, filedir=""):
 	
-	 #Storage for objective function values
+#Storage for objective function values
     histd, histg= np.zeros((TRAIN_ITERS*K_D)), np.zeros((TRAIN_ITERS*K_G))
     hist_pred_noise, hist_pred_data = np.zeros((TRAIN_ITERS)), np.zeros((TRAIN_ITERS))
     picture_count = 0
@@ -86,7 +87,7 @@ def train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, s
         	print("Average 100 Data into D1:",hist_pred_data[i])
         	print("avg 100 Noise into D1:",hist_pred_noise[i])
         	#Save a plot image
-        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i,y_node, mnist)
+        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i,filedir)
         	picture_count += 1
         	
     
@@ -97,7 +98,7 @@ def train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, s
 #		 Modifications to the above constructors should be checked for validity by
 #		 running the optimization routine on them
 #
-def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2,G, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer):
+def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2,G, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer, filedir = ""):
 	
 	 #Storage for objective function values
     histd, histg= np.zeros((TRAIN_ITERS*K_D)), np.zeros((TRAIN_ITERS*K_G))
@@ -145,7 +146,7 @@ def train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, 
         	print("Average 100 Data into D1:",hist_pred_data[i])
         	print("avg 100 Noise into D1:",hist_pred_noise[i])
         	#Save a plot image
-        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i)
+        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i,filedir)
         	picture_count += 1
         	
     

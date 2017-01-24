@@ -20,10 +20,12 @@ def full_graph(NOISE_DIM):
     
     D_W1 = tf.Variable(xavier_init([784, 128]))
     D_b1 = tf.Variable(tf.zeros(shape=[128]))
+    D_mask1 = tf.Variable(tf.ones(shape = [1,128])) # For dropout
+    D_beta1 = tf.zeros(shape = [1, 128]); D_scale1 = tf.ones(shape = [1, 128]) # For BN
     
     D_W2 = tf.Variable(xavier_init([128, 1]))
     D_b2 = tf.Variable(tf.zeros(shape=[1]))
-    theta_d = [D_W1, D_W2, D_b1, D_b2]
+    theta_d = [D_W1, D_W2, D_b1, D_b2]  
     
     G_W1 = tf.Variable(xavier_init([NOISE_DIM, 128]))
     G_b1 = tf.Variable(tf.zeros(shape=[128]))
@@ -32,18 +34,37 @@ def full_graph(NOISE_DIM):
     G_b2 = tf.Variable(tf.zeros(shape=[784]))
     theta_g = [G_W1, G_W2, G_b1, G_b2]
     
-    #Build G, we have forced the variables to defined as above
-    G_h1 = tf.nn.relu(tf.matmul(z_node, G_W1) + G_b1)
+    # Build G, we have forced the variables to defined as above
+    #G_h1 = tf.nn.relu(tf.matmul(z_node, G_W1) + G_b1) # <- old version
+    G_h1 = build_layer(z_node, G_W1, G_b1, keep_prob = 0.8)
     G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
-    G = tf.nn.sigmoid(G_log_prob)
+    G = tf.nn.sigmoid(G_log_prob)    
     
-    D_h1_real = tf.nn.relu(tf.matmul(x_node, D_W1) + D_b1)
-    D_real = tf.nn.sigmoid(tf.matmul(D_h1_real, D_W2) + D_b2)
+    # Build D:
+    keep_prob = .8
+    BN = False
+    if keep_prob < 1:
+        mask1 = tf.nn.dropout(D_mask1, keep_prob)
+        if BN: # Separate BN. TODO: still try joint
+            D_pre1_real = BN_tensor(tf.matmul(x_node, D_W1) + D_b1, D_beta1, D_scale1)
+            D_pre1_fake = BN_tensor(tf.matmul(G, D_W1) + D_b1, D_beta1, D_scale1)
+            D_h1_real = tf.multiply(tf.nn.relu(D_pre1_real), mask1)
+            D_h1_fake = tf.multiply(tf.nn.relu(D_pre1_fake), mask1)
+        else:
+            D_h1_real = tf.multiply(tf.nn.relu(tf.matmul(x_node, D_W1) + D_b1), mask1)
+            D_h1_fake = tf.multiply(tf.nn.relu(tf.matmul(G, D_W1) + D_b1), mask1)
     
-    D_h1_fake = tf.nn.relu(tf.matmul(G, D_W1) + D_b1)
-    D_fake = tf.nn.sigmoid(tf.matmul(D_h1_fake, D_W2) + D_b2)
+    else: # This is the old code if you're more comfortable with this
+        D_h1_real = tf.nn.relu(tf.matmul(x_node, D_W1) + D_b1)
+        D_h1_fake = tf.nn.relu(tf.matmul(G, D_W1) + D_b1)
+        
+    pre_D_real = tf.matmul(D_h1_real, D_W2) + D_b2
+    D_real = tf.nn.sigmoid(pre_D_real)
+                
+    pre_D_fake = tf.matmul(D_h1_fake, D_W2) + D_b2
+    D_fake = tf.nn.sigmoid(pre_D_fake)
     
-    return G,D_real,D_fake,theta_g,theta_d,x_node,z_node
+    return G, D_real, D_fake, theta_g, theta_d, x_node, z_node, pre_D_real, pre_D_fake
 	
 	
 def full_graph_conditional(NOISE_DIM):
@@ -98,12 +119,37 @@ def graph_objectives(D_real, D_fake):
         tf.summary.scalar('g_loss', obj_g)
     return obj_d, obj_g
 
+def graph_objectives_stable(pre_D_real, pre_D_fake):
+    # This version is expected to be more stable.
+    # The pre version means the link function for the last layer has not been applied yet.
+    with tf.name_scope('loss_func'):
+        D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(pre_D_real, tf.ones_like(pre_D_real)))
+        D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(pre_D_fake, tf.zeros_like(pre_D_fake)))
+        D_loss = D_loss_real + D_loss_fake
+        tf.summary.scalar('d_loss', D_loss)
+        G_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(pre_D_fake, tf.ones_like(pre_D_fake)))
+        tf.summary.scalar('g_loss', G_loss)
+    return D_loss, G_loss
+
 def graph_optimizers(obj_d, obj_g, theta_d, theta_g):
 	step = tf.Variable(0, trainable=False)
 	with tf.name_scope('train'):
 		opt_g = tf.train.AdamOptimizer().minimize(obj_g, var_list=theta_g)    
 		opt_d = tf.train.AdamOptimizer().minimize(obj_d, var_list=theta_d)
 	return opt_d, opt_g
+
+##-----------------network-builder helperfunctions----------	
+def build_layer(inputs, weights, biases, link_func = tf.nn.relu, keep_prob = 1, BN = False):
+    # TODO: BN, dropout
+    preactive = link_func(tf.matmul(inputs, weights) + biases)
+    if (keep_prob < 1 and keep_prob > 0): 
+        return tf.nn.dropout(preactive, keep_prob)
+    else: 
+        return preactive     
+
+def BN_tensor(tensor, beta, scale):
+    mean, variance = tf.nn.moments(tensor, [0])
+    return tf.nn.batch_normalization(tensor, mean, variance, beta, scale, 1e-10)
 
 
 #---f-gan---

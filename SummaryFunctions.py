@@ -43,17 +43,16 @@ def variable_summaries(var, extended = False):
         tf.summary.scalar('max', tf.reduce_max(var))
         tf.summary.histogram('histogram', var)
         
-        
-def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pred_noise, mnist, sess, TRAIN_ITERS, NOISE_Dim, y_node=None):
+def data_noise_png(hist_pred_data, hist_pred_noise, TRAIN_ITERS, NOISE_Dim, filedir= "", y_node=None):
     #Check performance of 100 noise samples into Discriminator
     if y_node == None:    
-        print("avg 100 Noise into D1:",
-        np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim)} ))
-        )
+        #print("avg 100 Noise into D1:",
+        #np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim)} ))
+        #)
         #Check performance of 100 data inputs into discriminator
-        print("Average 100 Data into D1:",
-        np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
-        )
+        #print("Average 100 Data into D1:",
+        #np.mean(sess.run([D1],{x_node: mnist.train.images[np.random.choice(image_count,100),:]} ))
+        #)
   	     #Generate the plot of DATA_NOISE and save to hard drive
         fig = plt.figure()
         ax1 = fig.add_subplot(211)
@@ -64,12 +63,12 @@ def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pre
         ax2.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
         ax2.set_title("Discriminator vs Noise")
     
-        plt.savefig("DATA_NOISE.png",bbox_inches="tight")
+        plt.savefig(filedir + "DATA_NOISE.png",bbox_inches="tight")
     else:
-        random_batch_indices = np.random.choice(image_count,100) #Select a mini batch 
-        print("avg 100 Noise into D1:", np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim), y_node: mnist.train.labels[random_batch_indices, :]} )))
+        #random_batch_indices = np.random.choice(image_count,100) #Select a mini batch 
+        #print("avg 100 Noise into D1:", np.mean(sess.run([D2],{z_node: sample_Z_2(100,NOISE_Dim), y_node: mnist.train.labels[random_batch_indices, :]} )))
         #Check performance of 100 data inputs into discriminator
-        print("Average 100 Data into D1:", np.mean(sess.run([D1],{x_node: mnist.train.images[random_batch_indices,:], y_node: mnist.train.labels[random_batch_indices, :]} )))
+        #print("Average 100 Data into D1:", np.mean(sess.run([D1],{x_node: mnist.train.images[random_batch_indices,:], y_node: mnist.train.labels[random_batch_indices, :]} )))
   	     #Generate the plot of DATA_NOISE and save to hard drive
         fig = plt.figure()
         ax1 = fig.add_subplot(211)
@@ -80,9 +79,10 @@ def data_noise_png(D1, D2, x_node, z_node, image_count, hist_pred_data, hist_pre
         ax2.plot(range(TRAIN_ITERS), hist_pred_noise , 'b-')
         ax2.set_title("Discriminator vs Noise")
     
-        plt.savefig("DATA_NOISE.png",bbox_inches="tight")
+        plt.savefig(filedir + "DATA_NOISE.png",bbox_inches="tight")
+        
 
-def Loss_function_png(histd, histg):
+def Loss_function_png(histd, histg, filedir = ""):
 	fig = plt.figure()
 	ax1 = fig.add_subplot(211)
 	ax1.plot(range(histg.shape[0]), histg , 'b-')
@@ -90,29 +90,30 @@ def Loss_function_png(histd, histg):
 	ax2 = fig.add_subplot(212)
 	ax2.plot(range(histd.shape[0]), histd  , 'b-')
 	ax2.set_title("Discriminator Loss Function")
-	plt.savefig("Loss_Functions.png",bbox_inches="tight")
-	
+	plt.savefig(filedir + "Loss_Functions.png",bbox_inches="tight")
+
      
-def pretty_plot(G, z_node, sess, NOISE_Dim,Picture_count = 0,Iteration=0, y_node=None, mnist=None):
+def pretty_plot(G, z_node, sess, NOISE_Dim,Picture_count = 0,Iteration=0,filedir="", y_node=None, mnist=None):
     #----------------------Generate samples and plot, save to "pretty_pictures.png" --------------------------------
     if y_node==None:
         samples = sess.run(G, feed_dict={z_node: sample_Z_2(16, NOISE_Dim)})
         fig = plot(samples,Iteration)
-    
-        plt.savefig('pictures/{}.png'.format(str(Picture_count).zfill(3)), bbox_inches='tight')
-        # TODO: need to find regions of high probability mass to generate sensible figures (interpolation pherhaps?)
+
+        plt.savefig(filedir + 'pictures/{}.png'.format(str(Picture_count).zfill(3)), bbox_inches='tight')
+
     else:
         image_count = mnist.train.images.shape[1]
         random_batch_indices = np.random.choice(image_count,16) #Select a mini batch 
         samples = sess.run(G, feed_dict={z_node: sample_Z_2(16, NOISE_Dim), y_node: mnist.train.labels[random_batch_indices, :]})
         fig = plot(samples,Iteration)
     
-        plt.savefig('pictures/{}.png'.format(str(Picture_count).zfill(3)), bbox_inches='tight')
-        # TODO: need to find regions of high probability mass to generate sensible figures (interpolation pherhaps?)
+        plt.savefig(filedir + 'pictures/{}.png'.format(str(Picture_count).zfill(3)), bbox_inches='tight')
+        # TODO: need to find regions of high probability mass to generate sensible figures (interpolation perhaps?)
+        
 
-def makeAnimatedGif():
+def makeAnimatedGif(filedir):
     # Recursively list image files and store them in a variable
-    os.system('convert -delay 35 -loop 0 pictures/*.png animation.gif')
+    os.system('convert -delay 35 -loop 0 ' + filedir +'pictures/*.png ' + filedir + 'animation.gif')
 
 
         
