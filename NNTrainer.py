@@ -27,7 +27,7 @@ FLAGS = None
 #		 Modifications to the above constructors should be checked for validity by
 #		 running the optimization routine on them
 #
-def train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2,G, x_node, z_node, y_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer, filedir=""):
+def train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, D1, D2, G, x_node, z_node, y_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer, filedir=""):
 	
 #Storage for objective function values
     histd, histg= np.zeros((TRAIN_ITERS*K_D)), np.zeros((TRAIN_ITERS*K_G))
@@ -87,7 +87,7 @@ def train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, s
         	print("Average 100 Data into D1:",hist_pred_data[i])
         	print("avg 100 Noise into D1:",hist_pred_noise[i])
         	#Save a plot image
-        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i,filedir)
+        	pretty_plot(G, z_node, sess, NOISE_DIM,picture_count,i,filedir, y_node = y_node, mnist = mnist)
         	picture_count += 1
         	
     

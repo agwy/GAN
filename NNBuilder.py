@@ -67,7 +67,7 @@ def full_graph(NOISE_DIM):
     return G, D_real, D_fake, theta_g, theta_d, x_node, z_node, pre_D_real, pre_D_fake
 	
 	
-def full_graph_conditional(NOISE_DIM):
+def full_graph_conditional(NOISE_DIM, keep_prob_G = 0.8, keep_prob_D = 0.8,  y_in_last_layer = True):
 	#IMPORTANT: Must     
     x_node = tf.placeholder(tf.float32, shape = [None,784])
     z_node = tf.placeholder(tf.float32, shape = [None,NOISE_DIM])
@@ -76,14 +76,19 @@ def full_graph_conditional(NOISE_DIM):
     #D layer 1 for x-dimension
     D_W1 = tf.Variable(xavier_init([784, 128]))
     D_b1 = tf.Variable(tf.zeros(shape=[128]))
+    D_mask1 = tf.Variable(tf.ones(shape = [1,128])) # For dropout
     #D layer 1 for y-dimension
     D_W1_y = tf.Variable(xavier_init([10, 128]))
     #D layer 2 (only for x-dimension)
     D_W2 = tf.Variable(xavier_init([128, 1]))
     D_b2 = tf.Variable(tf.zeros(shape=[1]))
+    D_W2_y = tf.Variable(xavier_init([10, 1]))
     #summarize the parameters in theta_d
-    theta_d = [D_W1, D_W1_y, D_W2, D_b1, D_b2]
-    
+    if y_in_last_layer:
+        theta_d = [D_W1, D_W2, D_W2_y, D_b1, D_b2]
+    else:
+        theta_d = [D_W1, D_W1_y, D_W2, D_b1, D_b2]
+        
     #G layer 1 for x-dimension
     G_W1 = tf.Variable(xavier_init([NOISE_DIM, 128]))
     G_b1 = tf.Variable(tf.zeros(shape=[128]))
@@ -96,17 +101,40 @@ def full_graph_conditional(NOISE_DIM):
     theta_g = [G_W1, G_W1_y, G_W2, G_b1, G_b2]
     
     #Build G
-    G_h1 = tf.nn.relu(tf.matmul(z_node, G_W1) + tf.matmul(y_node, G_W1_y) + G_b1)
+    if keep_prob_G < 1:
+        G_h1 = tf.nn.dropout(tf.nn.relu(tf.matmul(z_node, G_W1) + tf.matmul(y_node, G_W1_y) + G_b1), keep_prob_G)
+    else: 
+        G_h1 = tf.nn.relu(tf.matmul(z_node, G_W1) + tf.matmul(y_node, G_W1_y) + G_b1)
     G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
-    G = tf.nn.sigmoid(G_log_prob)
+    G = tf.nn.sigmoid(G_log_prob) # TODO: tanh
     
     #Build D in two parts
-    D_h1_real = tf.nn.relu(tf.matmul(x_node, D_W1) + tf.matmul(y_node, D_W1_y) + D_b1)
-    D_real = tf.nn.sigmoid(tf.matmul(D_h1_real, D_W2) + D_b2)
-    D_h1_fake = tf.nn.relu(tf.matmul(G, D_W1) + tf.matmul(y_node, D_W1_y) + D_b1)
-    D_fake = tf.nn.sigmoid(tf.matmul(D_h1_fake, D_W2) + D_b2)
+    if y_in_last_layer:
+        preactive1_real = tf.matmul(x_node, D_W1) + D_b1
+        preactive1_fake = tf.matmul(G, D_W1) + D_b1
+    else: # first version
+        preactive1_real = tf.matmul(x_node, D_W1) + tf.matmul(y_node, D_W1_y) + D_b1
+        preactive1_fake = tf.matmul(G, D_W1) + tf.matmul(y_node, D_W1_y) + D_b1
+        
+    if keep_prob_D < 1:
+        mask1 = tf.nn.dropout(D_mask1, keep_prob_D)
+        D_h1_real = tf.multiply(tf.nn.relu(preactive1_real), mask1)
+        D_h1_fake = tf.multiply(tf.nn.relu(preactive1_fake), mask1)
+    else:
+        D_h1_real = tf.nn.relu(preactive1_real)
+        D_h1_fake = tf.nn.relu(preactive1_fake)
+        
+    if y_in_last_layer:
+        pre_D_real = tf.matmul(D_h1_real, D_W2) + tf.matmul(y_node, D_W2_y) + D_b2
+        pre_D_fake = tf.matmul(D_h1_fake, D_W2) + tf.matmul(y_node, D_W2_y) + D_b2
+    else: # first version
+        pre_D_real = tf.matmul(D_h1_real, D_W2) + D_b2
+        pre_D_fake = tf.matmul(D_h1_fake, D_W2) + D_b2
     
-    return G,D_real,D_fake,theta_g,theta_d,x_node,z_node, y_node
+    D_real = tf.nn.sigmoid(pre_D_real)
+    D_fake = tf.nn.sigmoid(pre_D_fake)
+    
+    return G,D_real,D_fake,theta_g,theta_d,x_node,z_node, y_node, pre_D_real, pre_D_fake
 
 
 #Standard implementation

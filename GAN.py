@@ -34,7 +34,7 @@ def GAN(conditionalBool):
                                     fake_data=FLAGS.fake_data)                      
     image_count = mnist.train.images.shape[1]
 
-    TRAIN_ITERS= 100 #Training iterations
+    TRAIN_ITERS= 10000 #Training iterations
     NOISE_DIM = 100 #Input noise dimension
     NUM_DIAGN = 10 # Number of diagnostics to compute
     DIAGN_STEP = TRAIN_ITERS / NUM_DIAGN
@@ -45,12 +45,13 @@ def GAN(conditionalBool):
     
     #STEP 1: CREATE NETWORK
     if conditionalBool:
-        G,D_real,D_fake,theta_g,theta_d,x_node,z_node,y_node = full_graph_conditional(NOISE_DIM)
-        obj_d, obj_g = graph_objectives(D_real, D_fake)
+        G,D_real,D_fake,theta_g,theta_d,x_node,z_node,y_node, pre_D_real, pre_D_fake = full_graph_conditional(NOISE_DIM)
+
     else:
         G,D_real,D_fake,theta_g,theta_d,x_node,z_node, pre_D_real, pre_D_fake = full_graph(NOISE_DIM)
-        y_node=None        
-        obj_d, obj_g = graph_objectives_stable(pre_D_real, pre_D_fake)
+        y_node=None
+    #obj_d, obj_g = graph_objectives(D_real, D_fake)        
+    obj_d, obj_g = graph_objectives_stable(pre_D_real, pre_D_fake)
     opt_d, opt_g = graph_optimizers(obj_d, obj_g, theta_d, theta_g)
     
     #STEP 2: RUN SESSION
@@ -74,7 +75,7 @@ def GAN(conditionalBool):
     start = time.clock()
     if conditionalBool:
         hist_pred_noise , hist_pred_data, histd, histg = train_NN_Cond(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, 
-    																			D_real, D_fake,G, x_node, z_node, y_node,obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer, filedir = FLAGS.filedir)
+    																			D_real, D_fake, G, x_node, z_node, y_node,obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer, filedir = FLAGS.filedir)
     else:
         hist_pred_noise , hist_pred_data, histd, histg = train_NN(TRAIN_ITERS, DIAGN_STEP, NOISE_DIM, M, K_G,K_D, image_count, sess, mnist, 
     																			D_real, D_fake,G, x_node, z_node, obj_d, obj_g, opt_d, opt_g, merged_summ, train_writer, filedir = FLAGS.filedir)
@@ -114,7 +115,7 @@ def main(_):
     if tf.gfile.Exists(FLAGS.log_dir):
         tf.gfile.DeleteRecursively(FLAGS.log_dir)
     tf.gfile.MakeDirs(FLAGS.log_dir)
-    GAN(False)
+    GAN(True)
     #FEW if any of these flags are used....
     
 if __name__ == '__main__':
